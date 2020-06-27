@@ -3,7 +3,14 @@ import struct
 
 ser = serial.Serial('COM5', 115200, timeout=0,parity=serial.PARITY_NONE, rtscts=1)
 
-CMD_GET_VERSION =0x51
+BL_CMD_GET_VERSION                              =0x51
+BL_CMD_GET_HELP                                 =0x52
+BL_CMD_GET_CID                                  =0x53
+BL_CMD_GET_RDP_STATUS                           =0x54
+BL_CMD_GO_TO_ADDR                               =0x55
+BL_CMD_FLASH_ERASE                              =0x56
+BL_CMD_MEM_WRITE                                =0x57
+
 
 
 def word_to_byte(addr, index , lowerfirst):
@@ -12,7 +19,8 @@ def word_to_byte(addr, index , lowerfirst):
 
 def get_crc(buff, length):
     Crc = 0xFFFFFFFF
-    #print(length)
+    for i in range(length):
+        buff[i]=int(buff[i])
     for data in buff[0:length]:
         Crc = Crc ^ data
         for i in range(32):
@@ -21,13 +29,9 @@ def get_crc(buff, length):
             else:
                 Crc = (Crc << 1)
     return Crc
-def write_to_serial(value):
-    if type(value)==int:
-        data = struct.pack('>B', value)
-    else:
-        data = struct.pack('>B', ord(value))
-        
-    ser.write(data)
+
+def write_to_ser(data):
+    ser.write(struct.pack(">B",data))
 
 def read_knowledge():
     rep_n=str(ser.readline()).split('-')
@@ -36,9 +40,11 @@ def read_knowledge():
             print("Nacknowledge is received")
         else:
             print("Ackowledge is Received")
-            print(ser.readline().decode('utf-8'))
+            recvd=ser.readline().decode('utf-8')
+            return recvd
     else:
-        print("Unsuccesfull reading")
+        return "Unsuccesfull reading"
+
 
 databuff=[]
 while True:
@@ -47,24 +53,44 @@ while True:
         databuff.append(0)
     print("----------------------------\n")
     print("- For getting version : 1  -\n")
+    print("- For getting Help    : 2  -\n")
     print("----------------------------\n")
     opt=int(input('Enter option : '))
     if opt == 0:
         break
     elif opt==1:
         gv_package_length=6
-        databuff[0:2]=b'5Q'
+        databuff[0]=str(gv_package_length-1)
+        databuff[1]=str(BL_CMD_GET_VERSION)
         crc32       = get_crc(databuff[0:2],2)
         crc32 = crc32 & 0xffffffff
-        databuff[2] = chr(word_to_byte(crc32,1,1))
-        databuff[3] = chr(word_to_byte(crc32,2,1))
-        databuff[4] = chr(word_to_byte(crc32,3,1))
-        databuff[5] = chr(word_to_byte(crc32,4,1))
-        write_to_serial(databuff[0])
+        databuff[2] = word_to_byte(crc32,1,1)
+        databuff[3] = word_to_byte(crc32,2,1)
+        databuff[4] = word_to_byte(crc32,3,1)
+        databuff[5] = word_to_byte(crc32,4,1)
+        write_to_ser(int(databuff[0]))
         for i_byte in databuff[1:6]:
-            write_to_serial(i_byte)
-        read_knowledge()
-        
+            write_to_ser(int(i_byte))
+        bl_rep=read_knowledge()
+        print(bl_rep)
+
+    elif opt==2:
+        gh_package_length=6
+        databuff[0]=str(gh_package_length-1)
+        databuff[1]=str(BL_CMD_GET_HELP)
+        crc32       = get_crc(databuff[0:2],2)
+        crc32 = crc32 & 0xffffffff
+        databuff[2] = word_to_byte(crc32,1,1)
+        databuff[3] = word_to_byte(crc32,2,1)
+        databuff[4] = word_to_byte(crc32,3,1)
+        databuff[5] = word_to_byte(crc32,4,1)
+        write_to_ser(int(databuff[0]))
+        for i_byte in databuff[1:6]:
+            write_to_ser(int(i_byte))
+        bl_rep=read_knowledge().split('-')
+        for i in range(1,len(bl_rep)-1):
+            print(f"Supported command code {hex(int(bl_rep[i]))}")
+
     else:
         print("Unrecognized command")
 ser.close()

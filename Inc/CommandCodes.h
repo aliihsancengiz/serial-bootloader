@@ -1,6 +1,7 @@
 #ifndef __COMMAND_CODES__
 #define __COMMAND_CODES__
 
+#define BL_VERSION  1
 
 #define BL_GET_VERSION      0x51
 #define BL_GET_HELP         0x52
@@ -15,5 +16,5 @@
 #define BL_ACK              0xA5
 #define BL_NACK             0x7F
 
-#define BL_VERSION  1
+
 #endif
