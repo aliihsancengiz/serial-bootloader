@@ -1,0 +1,50 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "Build Project",
+			"command": "echo building && make all",
+			"group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+		},
+		{
+			"type": "shell",
+			"label": "Flash the MCU",
+			"command": "ST-LINK_CLI.exe -c SWD -p build/bootloader.hex -Rst -Run",
+			"presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+
+		},
+		{
+			"type": "shell",
+			"label": "Open The CubeMx",
+			"command": "bootloader.ioc",
+			"presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+
+		},
+		{	
+			"type":"shell",
+			"label":"Initialize OpenOcd",
+			"command":"cd OpenOcd && openocdconfig.bat",
+			"presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+
+
+		}
+
+	]
+}

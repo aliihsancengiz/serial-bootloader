@@ -1,0 +1,2 @@
+cd C:\Users\Ali Ihsan\AppData\Roaming\xPacks\@gnu-mcu-eclipse\openocd\0.10.0-12.1\.content\bin
+openocd -f "C:\Users\Ali Ihsan\AppData\Roaming\xPacks\@gnu-mcu-eclipse\openocd\0.10.0-12.1\.content\scripts\interface\stlink-v2-1.cfg" -f "C:\Users\Ali Ihsan\AppData\Roaming\xPacks\@gnu-mcu-eclipse\openocd\0.10.0-12.1\.content\scripts\target\stm32f4x.cfg" -s "C:\Users\Ali Ihsan\AppData\Roaming\xPacks\@gnu-mcu-eclipse\openocd\0.10.0-12.1\.content\scripts"
