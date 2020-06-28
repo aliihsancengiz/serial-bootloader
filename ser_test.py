@@ -54,6 +54,7 @@ while True:
     print("----------------------------\n")
     print("- For getting version : 1  -\n")
     print("- For getting Help    : 2  -\n")
+    print("- For getting CID     : 3  -\n")
     print("----------------------------\n")
     opt=int(input('Enter option : '))
     if opt == 0:
@@ -90,7 +91,24 @@ while True:
         bl_rep=read_knowledge().split('-')
         for i in range(1,len(bl_rep)-1):
             print(f"Supported command code {hex(int(bl_rep[i]))}")
-
+    elif opt==3:
+        gcid_package_length=6
+        databuff[0]=str(gcid_package_length-1)
+        databuff[1]=str(BL_CMD_GET_CID)
+        crc32       = get_crc(databuff[0:2],2)
+        crc32 = crc32 & 0xffffffff
+        databuff[2] = word_to_byte(crc32,1,1)
+        databuff[3] = word_to_byte(crc32,2,1)
+        databuff[4] = word_to_byte(crc32,3,1)
+        databuff[5] = word_to_byte(crc32,4,1)
+        write_to_ser(int(databuff[0]))
+        for i_byte in databuff[1:6]:
+            write_to_ser(int(i_byte))
+        bl_rep=read_knowledge().split('-')
+        if len(bl_rep)==3:
+            print(f"The Chip İd {hex(int(bl_rep[1]))}")
+        else:
+            pass
     else:
         print("Unrecognized command")
 ser.close()

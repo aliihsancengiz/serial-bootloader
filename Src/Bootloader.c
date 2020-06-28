@@ -12,7 +12,6 @@ uint8_t supported_cmd[]={BL_GET_VERSION,BL_GET_HELP,BL_GET_CID,BL_GET_RDP_STATUS
 void jump_to_bootloader()
 {
     volatile uint8_t recv_len=0;
-    //HAL_UART_Transmit(&huart2,"Jumped bootloader\r\n",19,HAL_MAX_DELAY);
     while(1)
     {
         // Clear the buffer
@@ -31,8 +30,9 @@ void jump_to_bootloader()
             case BL_GET_HELP:
                 bl_handle_get_help(rx_buffer);
                 break;
+            case BL_GET_CID:
+                bl_handle_get_cid(rx_buffer);
             default:
-                //HAL_UART_Transmit(&huart2,(uint8_t*)"Unnown Command\r\n",16,HAL_MAX_DELAY);
                 break;
         }
     }
@@ -101,6 +101,10 @@ void bl_uart_write_data(uint8_t *pbuff,uint32_t len)
 {
     HAL_UART_Transmit(&huart2,pbuff,len,HAL_MAX_DELAY);
 }
+uint16_t read_cid()
+{
+    return ((uint16_t)DBGMCU->IDCODE  & 0x0FFF); 
+}
 void bl_handle_get_version(uint8_t *rx_buffer)
 {
     uint8_t bl_version[]="Version 1.0\r\n";
@@ -140,4 +144,26 @@ void bl_handle_get_help(uint8_t *rx_buffer)
     {
         bl_send_nack();
     }
+}
+void bl_handle_get_cid(uint8_t *rx_buffer)
+{
+    uint8_t crc_buff[4],cid_buff[10];
+    crc_buff[0]=(int)rx_buffer[2];
+    crc_buff[1]=(int)rx_buffer[3];
+    crc_buff[2]=(int)rx_buffer[4];
+    crc_buff[3]=(int)rx_buffer[5];
+    volatile uint32_t host_crc=bytes2word(crc_buff);
+    uint16_t cid=read_cid();
+    sprintf(cid_buff,"-%d-\r\n",cid);
+    if(bl_verify_crc(&rx_buffer[0],2,host_crc))
+    {
+        bl_send_ack(1);
+        bl_uart_write_data(cid_buff,strlen(cid_buff));
+    }
+    else
+    {
+        bl_send_nack();
+    }
+    
+
 }
