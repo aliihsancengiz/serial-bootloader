@@ -49,13 +49,15 @@ def read_knowledge():
 databuff=[]
 while True:
     
-    for i in range(255):
+    for i in range(100):
         databuff.append(0)
-    print("----------------------------\n")
-    print("- For getting version : 1  -\n")
-    print("- For getting Help    : 2  -\n")
-    print("- For getting CID     : 3  -\n")
-    print("----------------------------\n")
+    print("---------------------------------\n")
+    print("- For getting version      : 1  -\n")
+    print("- For getting Help         : 2  -\n")
+    print("- For getting CID          : 3  -\n")
+    print("- For getting RDP Status   : 4  -\n")
+    print("- For jumping Adress       : 5  -\n")
+    print("---------------------------------\n")
     opt=int(input('Enter option : '))
     if opt == 0:
         break
@@ -108,9 +110,47 @@ while True:
         if len(bl_rep)==3:
             print(f"The Chip İd {hex(int(bl_rep[1]))}")
         else:
-            pass
+            print(bl_rep)
+    elif opt==4:
+        grdp_package_length=6
+        databuff[0]=str(grdp_package_length-1)
+        databuff[1]=str(BL_CMD_GET_RDP_STATUS)
+        crc32       = get_crc(databuff[0:2],2)
+        crc32 = crc32 & 0xffffffff
+        databuff[2] = word_to_byte(crc32,1,1)
+        databuff[3] = word_to_byte(crc32,2,1)
+        databuff[4] = word_to_byte(crc32,3,1)
+        databuff[5] = word_to_byte(crc32,4,1)
+        write_to_ser(int(databuff[0]))
+        for i_byte in databuff[1:6]:
+            write_to_ser(int(i_byte))
+        bl_rep=read_knowledge().split('-')
+        if(int(bl_rep[1])==170):
+            print("RDP level is 0")
+    elif opt==5:
+        gaddress_package_length=10
+        databuff[0]=str(gaddress_package_length-1)
+        databuff[1]=str(BL_CMD_GO_TO_ADDR)
+        adress=input('Enter the adress')
+        adress=int(adress,16)
+        databuff[2]=word_to_byte(adress,1,1)
+        databuff[3]=word_to_byte(adress,2,1)
+        databuff[4]=word_to_byte(adress,3,1)
+        databuff[5]=word_to_byte(adress,4,1)
+        crc32 = get_crc(databuff[0:6],6)
+        crc32 = crc32 & 0xffffffff
+        databuff[6] = word_to_byte(crc32,1,1)
+        databuff[7] = word_to_byte(crc32,2,1)
+        databuff[8] = word_to_byte(crc32,3,1)
+        databuff[9] = word_to_byte(crc32,4,1)
+        write_to_ser(int(databuff[0]))
+        for i_byte in databuff[1:10]:
+            write_to_ser(int(i_byte))
+        bl_rep=read_knowledge()
+        print(bl_rep)
     else:
         print("Unrecognized command")
+    databuff=[]
 ser.close()
 
 

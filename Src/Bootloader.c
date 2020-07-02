@@ -32,6 +32,12 @@ void jump_to_bootloader()
                 break;
             case BL_GET_CID:
                 bl_handle_get_cid(rx_buffer);
+                break;
+            case BL_GET_RDP_STATUS:
+                bl_handle_get_rdp(rx_buffer);
+                break;
+            case BL_GO_TO_ADDR:
+                bl_handle_go_to_adress(rx_buffer);
             default:
                 break;
         }
@@ -51,17 +57,17 @@ void jump_to_user_application()
 }
 void bl_send_ack(uint8_t length)
 {
-    uint8_t ackbuff[10];
-    memset(ackbuff,0,10);
+    uint8_t ackbuff[15];
+    memset(ackbuff,0,15);
     sprintf(ackbuff,"-%d-%d-\r\n",BL_ACK,length);
-    HAL_UART_Transmit(&huart2,ackbuff,strlen(ackbuff),HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart2,ackbuff,strlen((const char *)ackbuff),HAL_MAX_DELAY);
 }
 void bl_send_nack()
 {
     uint8_t nackbuff[10];
     memset(nackbuff,0,10);
-    sprintf(nackbuff,"-%d-\r\n",BL_NACK);
-    HAL_UART_Transmit(&huart2,&nackbuff,strlen(nackbuff),HAL_MAX_DELAY);
+    sprintf((char*)nackbuff,"-%d-\r\n",BL_NACK);
+    HAL_UART_Transmit(&huart2,&nackbuff,strlen((const char *)nackbuff),HAL_MAX_DELAY);
 }
 uint32_t bytes2word(uint8_t buff[])
 {
@@ -105,6 +111,11 @@ uint16_t read_cid()
 {
     return ((uint16_t)DBGMCU->IDCODE  & 0x0FFF); 
 }
+uint8_t read_rdp_level()
+{
+    volatile uint32_t *pOP=(uint32_t*)(0x1FFFC000);
+    return (uint8_t)(*pOP >> 8);
+}
 void bl_handle_get_version(uint8_t *rx_buffer)
 {
     uint8_t bl_version[]="Version 1.0\r\n";
@@ -117,7 +128,7 @@ void bl_handle_get_version(uint8_t *rx_buffer)
     if(bl_verify_crc(&rx_buffer[0],2,host_crc))
     {
         bl_send_ack(1);
-        bl_uart_write_data(bl_version,strlen(bl_version));
+        bl_uart_write_data(bl_version,strlen((const char *)bl_version));
     }
     else
     {
@@ -158,12 +169,60 @@ void bl_handle_get_cid(uint8_t *rx_buffer)
     if(bl_verify_crc(&rx_buffer[0],2,host_crc))
     {
         bl_send_ack(1);
-        bl_uart_write_data(cid_buff,strlen(cid_buff));
+        bl_uart_write_data(cid_buff,strlen((const char *)cid_buff));
     }
     else
     {
         bl_send_nack();
     }
-    
+}
+void bl_handle_get_rdp(uint8_t *rx_buffer)
+{
+    uint8_t crc_buff[4],rdp_buff[10];
+    crc_buff[0]=(int)rx_buffer[2];
+    crc_buff[1]=(int)rx_buffer[3];
+    crc_buff[2]=(int)rx_buffer[4];
+    crc_buff[3]=(int)rx_buffer[5];
+    volatile uint32_t host_crc=bytes2word(crc_buff);
+    volatile uint8_t rdp_status=read_rdp_level();
+    sprintf(rdp_buff,"-%d-\r\n",rdp_status);
+    if(bl_verify_crc(&rx_buffer[0],2,host_crc))
+    {
+        bl_send_ack(1);
+        bl_uart_write_data(rdp_buff,strlen((const char *)rdp_buff));
+    }
+    else
+    {
+        bl_send_nack();
+    }
+}
 
+void bl_handle_go_to_adress(uint8_t *rx_buffer)
+{
+    uint8_t crc_buffer[4],adress[4],reply_to_cmd[20];
+    crc_buffer[0]=(int)rx_buffer[6];
+    crc_buffer[1]=(int)rx_buffer[7];
+    crc_buffer[2]=(int)rx_buffer[8];
+    crc_buffer[3]=(int)rx_buffer[9];
+    adress[0]=(int)rx_buffer[2];
+    adress[1]=(int)rx_buffer[3];
+    adress[2]=(int)rx_buffer[4];
+    adress[3]=(int)rx_buffer[5];
+    volatile uint32_t host_crc=bytes2word(crc_buffer);
+    volatile uint32_t adress_to_jump=bytes2word(adress);
+    if(bl_verify_crc(&rx_buffer[0],6,host_crc))
+    {
+        sprintf(reply_to_cmd,"-Okey i am running-\r\n");
+        bl_send_ack(1);
+        bl_uart_write_data(reply_to_cmd,strlen((const char *)reply_to_cmd));
+        adress_to_jump+=1;
+        void (*lets_jump)(void)=(void*)adress_to_jump;
+        lets_jump();
+    }
+    else
+    {
+        sprintf(reply_to_cmd,"-CRC is not good-\r\n");
+        bl_send_nack();
+        bl_uart_write_data(reply_to_cmd,strlen((const char *)reply_to_cmd));
+    }
 }
