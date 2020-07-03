@@ -1,7 +1,7 @@
 import serial
 import struct
 
-ser = serial.Serial('COM5', 115200, timeout=0,parity=serial.PARITY_NONE, rtscts=1)
+ser = serial.Serial('COM12', 115200, timeout=0,parity=serial.PARITY_NONE, rtscts=1)
 
 BL_CMD_GET_VERSION                              =0x51
 BL_CMD_GET_HELP                                 =0x52
@@ -57,6 +57,7 @@ while True:
     print("- For getting CID          : 3  -\n")
     print("- For getting RDP Status   : 4  -\n")
     print("- For jumping Adress       : 5  -\n")
+    print("- For Flash Erase          : 6  -\n")
     print("---------------------------------\n")
     opt=int(input('Enter option : '))
     if opt == 0:
@@ -145,6 +146,23 @@ while True:
         databuff[9] = word_to_byte(crc32,4,1)
         write_to_ser(int(databuff[0]))
         for i_byte in databuff[1:10]:
+            write_to_ser(int(i_byte))
+        bl_rep=read_knowledge()
+        print(bl_rep)
+    elif opt==6:
+        rflash_package_length=8
+        databuff[0]=str(rflash_package_length-1)
+        databuff[1]=str(BL_CMD_FLASH_ERASE)
+        databuff[2]=int(input("Enter Sector number"))
+        databuff[3]=int(input("number of Sectors"))
+        crc32 = get_crc(databuff[0:4],4)
+        crc32 = crc32 & 0xffffffff
+        databuff[4] = word_to_byte(crc32,1,1)
+        databuff[5] = word_to_byte(crc32,2,1)
+        databuff[6] = word_to_byte(crc32,3,1)
+        databuff[7] = word_to_byte(crc32,4,1)
+        write_to_ser(int(databuff[0]))
+        for i_byte in databuff[1:8]:
             write_to_ser(int(i_byte))
         bl_rep=read_knowledge()
         print(bl_rep)

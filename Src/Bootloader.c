@@ -38,6 +38,9 @@ void jump_to_bootloader()
                 break;
             case BL_GO_TO_ADDR:
                 bl_handle_go_to_adress(rx_buffer);
+                break;
+            case BL_FLASH_ERASE:
+                bl_handle_flash_erase(rx_buffer);
             default:
                 break;
         }
@@ -115,6 +118,45 @@ uint8_t read_rdp_level()
 {
     volatile uint32_t *pOP=(uint32_t*)(0x1FFFC000);
     return (uint8_t)(*pOP >> 8);
+}
+uint8_t execute_flash_erase(uint8_t sector_number,uint8_t number_of_sector)
+{
+    FLASH_EraseInitTypeDef hflash_erase;
+    HAL_StatusTypeDef status;
+    uint32_t sectorError;
+    if (number_of_sector>12)
+    {
+        return -1;
+    }
+    if((sector_number==0xff) || (sector_number  <=11)) 
+    {
+        if(sector_number==0xff) // Mass Erase 
+        {
+            hflash_erase.TypeErase=FLASH_TYPEERASE_MASSERASE;
+        }
+        else
+        {
+            uint8_t remanining_sector = 12 - sector_number;
+            if( number_of_sector > remanining_sector)
+            {
+            	number_of_sector = remanining_sector;
+            }
+			hflash_erase.TypeErase = FLASH_TYPEERASE_SECTORS;
+			hflash_erase.Sector = sector_number; // this is the initial sector
+			hflash_erase.NbSectors = number_of_sector;
+        }
+        hflash_erase.Banks = FLASH_BANK_1;
+
+		/*Get access to touch the flash registers */
+		HAL_FLASH_Unlock();
+		hflash_erase.VoltageRange = FLASH_VOLTAGE_RANGE_3;  // our mcu will work on this voltage range
+		status = (uint8_t) HAL_FLASHEx_Erase(&hflash_erase, &sectorError);
+		HAL_FLASH_Lock();
+
+		return status;
+    }
+    return -1;
+
 }
 void bl_handle_get_version(uint8_t *rx_buffer)
 {
@@ -225,4 +267,41 @@ void bl_handle_go_to_adress(uint8_t *rx_buffer)
         bl_send_nack();
         bl_uart_write_data(reply_to_cmd,strlen((const char *)reply_to_cmd));
     }
+}
+
+void bl_handle_flash_erase(uint8_t *rx_buffer)
+{
+    uint8_t crc_buffer[4],reply_to_cmd[20];
+    crc_buffer[0]=(int)rx_buffer[4];
+    crc_buffer[1]=(int)rx_buffer[5];
+    crc_buffer[2]=(int)rx_buffer[6];
+    crc_buffer[3]=(int)rx_buffer[7];
+    volatile uint32_t host_crc=bytes2word(crc_buffer);
+    volatile uint8_t sectornumber=(uint8_t)((int)rx_buffer[2]);
+    volatile uint8_t numberofsector=(uint8_t)((int)rx_buffer[3]);
+    if(bl_verify_crc(&rx_buffer[0],4,host_crc))
+    {
+        bl_send_ack(1);
+        volatile uint8_t status=execute_flash_erase(sectornumber,numberofsector);
+        if (status==-1)
+        {
+            sprintf(reply_to_cmd,"error occured\r\n");
+            bl_uart_write_data(reply_to_cmd,strlen(reply_to_cmd));
+        }
+        else
+        {
+            sprintf(reply_to_cmd,"Erase performed\r\n");
+            bl_uart_write_data(reply_to_cmd,strlen(reply_to_cmd));    
+        }
+        
+    }
+    else
+    {
+        bl_send_nack();
+    }
+    
+
+
+
+
 }
