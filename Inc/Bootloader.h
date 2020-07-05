@@ -21,6 +21,7 @@ void bl_handle_get_cid(uint8_t *rx_buffer);
 void bl_handle_get_rdp(uint8_t *rx_buffer);
 void bl_handle_go_to_adress(uint8_t *rx_buffer);
 void bl_handle_flash_erase(uint8_t *rx_buffer);
+void bl_handle_mem_write(uint8_t *rx_buffer);
 
 void bl_send_ack(uint8_t length);
 void bl_send_nack();

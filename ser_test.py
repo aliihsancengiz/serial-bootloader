@@ -1,7 +1,8 @@
 import serial
 import struct
+import time
 
-ser = serial.Serial('COM12', 115200, timeout=0,parity=serial.PARITY_NONE, rtscts=1)
+ser = serial.Serial('COM13', 115200, timeout=0,parity=serial.PARITY_NONE, rtscts=1)
 
 BL_CMD_GET_VERSION                              =0x51
 BL_CMD_GET_HELP                                 =0x52
@@ -58,6 +59,7 @@ while True:
     print("- For getting RDP Status   : 4  -\n")
     print("- For jumping Adress       : 5  -\n")
     print("- For Flash Erase          : 6  -\n")
+    print("- For Memory Write         : 7  -\n")
     print("---------------------------------\n")
     opt=int(input('Enter option : '))
     if opt == 0:
@@ -166,6 +168,47 @@ while True:
             write_to_ser(int(i_byte))
         bl_rep=read_knowledge()
         print(bl_rep)
+    elif opt==7:
+        f=open("test_bootloader.bin","rb")
+        baseaddr=int(input('Enter Base adress to write Bin file'),16)
+        j=0
+        while True:
+            databuff=[]
+            for i in range(150):
+                databuff.append(0)
+            s=bytearray(f.read(100))
+            if not s:
+                break
+            payload_len=len(s)
+            length_of_package=(11+payload_len)
+            databuff[0]=str(length_of_package-1)
+            databuff[1]=str(BL_CMD_MEM_WRITE)
+            # print(baseaddr)
+            databuff[2]=word_to_byte(baseaddr,1,1)
+            databuff[3]=word_to_byte(baseaddr,2,1)
+            databuff[4]=word_to_byte(baseaddr,3,1)
+            databuff[5]=word_to_byte(baseaddr,4,1)
+            databuff[6]=payload_len
+            baseaddr+=payload_len
+            for i in range(payload_len):
+                databuff[7+i]=s[i]
+            bb=databuff[7:payload_len+7]
+            crc32       = get_crc(bb,payload_len)
+            crc32 = crc32 & 0xffffffff
+            databuff[7+payload_len] = word_to_byte(crc32,1,1)
+            databuff[8+payload_len] = word_to_byte(crc32,2,1)
+            databuff[9+payload_len] = word_to_byte(crc32,3,1)
+            databuff[10+payload_len] = word_to_byte(crc32,4,1)
+            write_to_ser(int(databuff[0]))
+            for i_byte in databuff[1:length_of_package]:
+                write_to_ser(int(i_byte))
+            rep_n=str(ser.readline()).split('-')
+            print(rep_n,j)
+            j+=1
+            time.sleep(0.2)
+            # if len(rep_n)>1:
+            #     print("Ack is recevived",rep_n)
+
     else:
         print("Unrecognized command")
     databuff=[]

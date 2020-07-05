@@ -41,6 +41,9 @@ void jump_to_bootloader()
                 break;
             case BL_FLASH_ERASE:
                 bl_handle_flash_erase(rx_buffer);
+            case BL_MEM_WRITE:
+                bl_handle_mem_write(rx_buffer);
+                break;
             default:
                 break;
         }
@@ -88,7 +91,7 @@ bool bl_verify_crc(uint8_t *pBuff,uint32_t len,uint32_t host_crc)
     uint32_t xxACC=0xff;
     for ( i = 0; i < len; i++)
     {
-        uint32_t ins_data=pBuff[i];
+        uint32_t ins_data=(int)pBuff[i];
         xxACC=HAL_CRC_Accumulate(&hcrc,&ins_data,1);
     }
     __HAL_CRC_DR_RESET(&hcrc);
@@ -157,6 +160,23 @@ uint8_t execute_flash_erase(uint8_t sector_number,uint8_t number_of_sector)
     }
     return -1;
 
+}
+uint8_t execute_mem_write(uint8_t *pBuffer, uint32_t mem_address, uint32_t len)
+{
+    uint8_t status=HAL_OK;
+
+    //We have to unlock flash module to get control of registers
+    HAL_FLASH_Unlock();
+
+    for(uint32_t i = 0 ; i <len ; i++)
+    {
+        //Here we program the flash byte by byte
+        status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_BYTE,mem_address+i,pBuffer[i] );
+    }
+
+    HAL_FLASH_Lock();
+
+    return status;
 }
 void bl_handle_get_version(uint8_t *rx_buffer)
 {
@@ -299,9 +319,35 @@ void bl_handle_flash_erase(uint8_t *rx_buffer)
     {
         bl_send_nack();
     }
-    
+}
+void bl_handle_mem_write(uint8_t *rx_buffer)
+{
+    uint8_t adress_buffer[4],crc_buffer[4],i,host_crc_buff[4],rply_cmd[20];
+    adress_buffer[0]=rx_buffer[2];
+    adress_buffer[1]=rx_buffer[3];
+    adress_buffer[2]=rx_buffer[4];
+    adress_buffer[3]=rx_buffer[5];
+    volatile uint32_t base_addr=bytes2word(adress_buffer);
+    volatile uint8_t len=(uint8_t)((int)rx_buffer[6]);
+    volatile uint8_t write_buff[100];
+    host_crc_buff[0]=(int)rx_buffer[7+len];
+    host_crc_buff[1]=(int)rx_buffer[8+len];
+    host_crc_buff[2]=(int)rx_buffer[9+len];
+    host_crc_buff[3]=(int)rx_buffer[10+len];
+    volatile uint32_t host_crc=bytes2word(host_crc_buff);
+    for (i = 0; i < len; i++)
+    {
+        write_buff[i]=((int)rx_buffer[i+7]);
+    } 
+    if(bl_verify_crc(&write_buff[0],len,host_crc))
+    {
+        bl_send_ack(1);
+        execute_mem_write(write_buff,base_addr,len);
 
-
-
+    }
+    else
+    {
+        bl_send_nack();
+    }
 
 }
