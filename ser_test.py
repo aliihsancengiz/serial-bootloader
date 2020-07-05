@@ -1,6 +1,7 @@
 import serial
 import struct
 import time
+import os
 
 ser = serial.Serial('COM13', 115200, timeout=0,parity=serial.PARITY_NONE, rtscts=1)
 
@@ -13,6 +14,9 @@ BL_CMD_FLASH_ERASE                              =0x56
 BL_CMD_MEM_WRITE                                =0x57
 
 
+
+def get_sizeof_file(filename):
+    return os.path.getsize(filename)
 
 def word_to_byte(addr, index , lowerfirst):
     value = (addr >> ( 8 * ( index -1)) & 0x000000FF )
@@ -48,8 +52,7 @@ def read_knowledge():
 
 
 databuff=[]
-while True:
-    
+while True: 
     for i in range(100):
         databuff.append(0)
     print("---------------------------------\n")
@@ -169,7 +172,9 @@ while True:
         bl_rep=read_knowledge()
         print(bl_rep)
     elif opt==7:
-        f=open("test_bootloader.bin","rb")
+        binfile_name=str(input("Enter binary file name : "))
+        f=open(binfile_name+".bin","rb")
+        fsize=get_sizeof_file(binfile_name+".bin")
         baseaddr=int(input('Enter Base adress to write Bin file'),16)
         j=0
         while True:
@@ -183,7 +188,6 @@ while True:
             length_of_package=(11+payload_len)
             databuff[0]=str(length_of_package-1)
             databuff[1]=str(BL_CMD_MEM_WRITE)
-            # print(baseaddr)
             databuff[2]=word_to_byte(baseaddr,1,1)
             databuff[3]=word_to_byte(baseaddr,2,1)
             databuff[4]=word_to_byte(baseaddr,3,1)
@@ -203,11 +207,14 @@ while True:
             for i_byte in databuff[1:length_of_package]:
                 write_to_ser(int(i_byte))
             rep_n=str(ser.readline()).split('-')
-            print(rep_n,j)
-            j+=1
+            if len(rep_n)>1:
+                if(int(rep_n[1])==165):
+                    j=j+payload_len
+                    if (j+100)==fsize:
+                        print("Overall file transmitted")
+                    else: 
+                        print(f"%{(int((j/fsize)*100))} of file is transmitted succecfully")
             time.sleep(0.2)
-            # if len(rep_n)>1:
-            #     print("Ack is recevived",rep_n)
 
     else:
         print("Unrecognized command")
