@@ -180,7 +180,8 @@ uint8_t execute_mem_write(uint8_t *pBuffer, uint32_t mem_address, uint32_t len)
 }
 void bl_handle_get_version(uint8_t *rx_buffer)
 {
-    uint8_t bl_version[]="Version 1.0\r\n";
+    uint8_t bl_version[]="Version 1.0";
+    uint8_t ver_buff[30];
     uint8_t crc_buff[4];
     crc_buff[0]=(int)rx_buffer[2];
     crc_buff[1]=(int)rx_buffer[3];
@@ -189,8 +190,9 @@ void bl_handle_get_version(uint8_t *rx_buffer)
     volatile uint32_t host_crc=bytes2word(crc_buff);
     if(bl_verify_crc(&rx_buffer[0],2,host_crc))
     {
-        bl_send_ack(1);
-        bl_uart_write_data(bl_version,strlen((const char *)bl_version));
+        sprintf(ver_buff,"%d-%s-\r\n",BL_GET_VERSION,bl_version);
+        bl_send_ack(strlen(ver_buff));
+        bl_uart_write_data(ver_buff,strlen((const char *)ver_buff));
     }
     else
     {
@@ -200,18 +202,18 @@ void bl_handle_get_version(uint8_t *rx_buffer)
 }
 void bl_handle_get_help(uint8_t *rx_buffer)
 {
-    uint8_t crc_buff[4],scmd_buff[40],i;
+    uint8_t crc_buff[4],scmd_buff[30],i;
     
     crc_buff[0]=(int)rx_buffer[2];
     crc_buff[1]=(int)rx_buffer[3];
     crc_buff[2]=(int)rx_buffer[4];
     crc_buff[3]=(int)rx_buffer[5];
     volatile uint32_t host_crc=bytes2word(crc_buff);
-    sprintf(scmd_buff,"-%d-%d-%d-%d-%d-%d-%d-\r\n",supported_cmd[0],supported_cmd[1],supported_cmd[2],supported_cmd[3],supported_cmd[4],supported_cmd[5],supported_cmd[6]);
     if(bl_verify_crc(&rx_buffer[0],2,host_crc))
     {
-        bl_send_ack(1);
-        bl_uart_write_data(scmd_buff,sizeof(scmd_buff));
+        sprintf(scmd_buff,"%d-%d-%d-%d-%d-%d-%d-%d",50,supported_cmd[0],supported_cmd[1],supported_cmd[2],supported_cmd[3],supported_cmd[4],supported_cmd[5],supported_cmd[6]);
+        bl_send_ack(strlen(scmd_buff));
+        bl_uart_write_data(scmd_buff,strlen(scmd_buff));
     }
     else
     {
@@ -220,17 +222,17 @@ void bl_handle_get_help(uint8_t *rx_buffer)
 }
 void bl_handle_get_cid(uint8_t *rx_buffer)
 {
-    uint8_t crc_buff[4],cid_buff[10];
+    uint8_t crc_buff[4],cid_buff[20];
     crc_buff[0]=(int)rx_buffer[2];
     crc_buff[1]=(int)rx_buffer[3];
     crc_buff[2]=(int)rx_buffer[4];
     crc_buff[3]=(int)rx_buffer[5];
     volatile uint32_t host_crc=bytes2word(crc_buff);
     uint16_t cid=read_cid();
-    sprintf(cid_buff,"-%d-\r\n",cid);
     if(bl_verify_crc(&rx_buffer[0],2,host_crc))
     {
-        bl_send_ack(1);
+        sprintf(cid_buff,"%d-%d\r\n",BL_GET_CID,cid);
+        bl_send_ack(strlen(cid_buff));
         bl_uart_write_data(cid_buff,strlen((const char *)cid_buff));
     }
     else
@@ -240,17 +242,17 @@ void bl_handle_get_cid(uint8_t *rx_buffer)
 }
 void bl_handle_get_rdp(uint8_t *rx_buffer)
 {
-    uint8_t crc_buff[4],rdp_buff[10];
+    uint8_t crc_buff[4],rdp_buff[20];
     crc_buff[0]=(int)rx_buffer[2];
     crc_buff[1]=(int)rx_buffer[3];
     crc_buff[2]=(int)rx_buffer[4];
     crc_buff[3]=(int)rx_buffer[5];
     volatile uint32_t host_crc=bytes2word(crc_buff);
     volatile uint8_t rdp_status=read_rdp_level();
-    sprintf(rdp_buff,"-%d-\r\n",rdp_status);
+    sprintf(rdp_buff,"%d-%d-\r\n",BL_GET_RDP_STATUS,rdp_status);
     if(bl_verify_crc(&rx_buffer[0],2,host_crc))
     {
-        bl_send_ack(1);
+        bl_send_ack(strlen(rdp_buff));
         bl_uart_write_data(rdp_buff,strlen((const char *)rdp_buff));
     }
     else
@@ -261,7 +263,7 @@ void bl_handle_get_rdp(uint8_t *rx_buffer)
 
 void bl_handle_go_to_adress(uint8_t *rx_buffer)
 {
-    uint8_t crc_buffer[4],adress[4],reply_to_cmd[20];
+    uint8_t crc_buffer[4],adress[4],reply_to_cmd[25];
     crc_buffer[0]=(int)rx_buffer[6];
     crc_buffer[1]=(int)rx_buffer[7];
     crc_buffer[2]=(int)rx_buffer[8];
@@ -274,9 +276,9 @@ void bl_handle_go_to_adress(uint8_t *rx_buffer)
     volatile uint32_t adress_to_jump=bytes2word(adress);
     if(bl_verify_crc(&rx_buffer[0],6,host_crc))
     {
-        sprintf(reply_to_cmd,"-Okey i am running-\r\n");
+        // sprintf(reply_to_cmd,"-Okey i am running-\r\n");
         bl_send_ack(1);
-        bl_uart_write_data(reply_to_cmd,strlen((const char *)reply_to_cmd));
+        // bl_uart_write_data(reply_to_cmd,strlen((const char *)reply_to_cmd));
         adress_to_jump+=1;
         void (*lets_jump)(void)=(void*)adress_to_jump;
         lets_jump();
@@ -301,7 +303,8 @@ void bl_handle_flash_erase(uint8_t *rx_buffer)
     volatile uint8_t numberofsector=(uint8_t)((int)rx_buffer[3]);
     if(bl_verify_crc(&rx_buffer[0],4,host_crc))
     {
-        bl_send_ack(1);
+        sprintf(reply_to_cmd,"Erase performed\r\n");
+        bl_send_ack(strlen(reply_to_cmd));
         volatile uint8_t status=execute_flash_erase(sectornumber,numberofsector);
         if (status==-1)
         {
@@ -310,7 +313,6 @@ void bl_handle_flash_erase(uint8_t *rx_buffer)
         }
         else
         {
-            sprintf(reply_to_cmd,"Erase performed\r\n");
             bl_uart_write_data(reply_to_cmd,strlen(reply_to_cmd));    
         }
         
@@ -322,7 +324,7 @@ void bl_handle_flash_erase(uint8_t *rx_buffer)
 }
 void bl_handle_mem_write(uint8_t *rx_buffer)
 {
-    uint8_t adress_buffer[4],crc_buffer[4],i,host_crc_buff[4],rply_cmd[20];
+    uint8_t adress_buffer[4],crc_buffer[4],i,host_crc_buff[4];
     adress_buffer[0]=rx_buffer[2];
     adress_buffer[1]=rx_buffer[3];
     adress_buffer[2]=rx_buffer[4];
