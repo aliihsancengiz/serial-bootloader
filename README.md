@@ -10,4 +10,4 @@ This Repository Contains Serial(UART) bootloader for stm32f4 board
 * Erase Flash
 * load File(only binary supported hex and elf file will be implemented)
 
-Currently bootloader host contains some bugs but it will be corrected in new versions more command will be added.
+You can use Host Gui app instead of ser_test.py which is CLI for Host app.
